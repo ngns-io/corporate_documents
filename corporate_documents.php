@@ -242,24 +242,38 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 
 	$temp_content .= '<div class="cdox-filter-form-wrapper">';
 	$temp_content .= '<form action="'. site_url() .'/wp-admin/admin-ajax.php" method="POST" id="filter">';
-	$args = array (
+		$args = array (
 		'taxonomy' => 'document_type',
 		'hide_empty' => false,
 		'orderby' => 'name',
 	);
+	$temp_content .= '<fieldset>';
+	$temp_content .= '<legend>Select Document Type</legend>';
+	$temp_content .= '<div class="cdox-filter-form-select">';
 	if( $terms = get_terms( $args ) ) : 
-		$temp_content .= '<select name="cdoxfilter"><option value="">Select document type...</option>';
+		$temp_content .= '<select name="cdoxfilter"><option value="cdox_all" selected="selected">All Documents</option>';
 		foreach ( $terms as $term ) :
 			$temp_content .= '<option value="' . $term->term_id . '">' . $term->name . '</option>'; // ID of the category as the value of an option
 		endforeach;
 		$temp_content .= '</select>';
 	endif;
+	$temp_content .= '</div>';
+	$temp_content .= '</fieldset>';
 	//echo '<input type="text" name="price_min" placeholder="Min price" />';
 	//echo '<input type="text" name="price_max" placeholder="Max price" />';
-	$temp_content .= '<label><input type="radio" name="date" value="ASC" /> Date: Ascending</label>';
-	$temp_content .= '<label><input type="radio" name="date" value="DESC" selected="selected" /> Date: Descending</label>';
+	$temp_content .= '<fieldset>';
+	$temp_content .= '<legend>Sort by Publication Date</legend>';
+	$temp_content .= '<div class="toggle">';
+	$temp_content .= '<input type="radio" name="date" value="DESC" id="cdox_desc" checked="checked" />';
+	$temp_content .= '<label for="cdox_desc">Descending (newest first)</label>';
+	$temp_content .= '<input type="radio" name="date" value="ASC" id="cdox_asc" />';
+	$temp_content .= '<label for="cdox_asc">Ascending (oldest first)</label>';
+	$temp_content .= '</div>';
+	$temp_content .= '</fieldset>';
+	//$temp_content .= '<label><input type="radio" name="date" value="ASC" /> Date: Ascending</label>';
+	//$temp_content .= '<label><input type="radio" name="date" value="DESC" checked /> Date: Descending</label>';
 	//echo '<label><input type="checkbox" name="featured_image" /> Only posts with featured images</label>';
-	$temp_content .= '<button>Apply filter</button>';
+	$temp_content .= '<div class="cdox-filter-form-button"><button>Apply filter</button></div>';
 	$temp_content .= '<input type="hidden" name="showpubdate" value="'. $show_date .'">';
 	$temp_content .= '<input type="hidden" name="action" value="cdox_filter">';
 	$temp_content .= '</form>';
@@ -286,14 +300,18 @@ function cdox_apply_filter() {
 		'order'	            => $_POST['date'] // ASC or DESC
 	);
 
-	if( isset( $_POST['cdoxfilter'] ) )
-		$args['tax_query'] = array(
-			array(
-				'taxonomy' => 'document_type',
-				'field' => 'id',
-				'terms' => $_POST['cdoxfilter']
-			)
-		);
+	if( isset( $_POST['cdoxfilter'] ) ):
+		if ( $_POST['cdoxfilter'] === "cdox_all" ):
+		else:
+			$args['tax_query'] = array(
+				array(
+					'taxonomy' => 'document_type',
+					'field' => 'id',
+					'terms' => $_POST['cdoxfilter']
+				)
+			);
+		endif;
+	endif;
 
 	$show_date = true;
 	if( isset( $_POST['showpubdate'] ) )

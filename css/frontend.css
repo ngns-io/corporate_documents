@@ -1,3 +1,195 @@
+.cdox-filter-form-wrapper {
+  padding: 10px;
+}
+
+.cdox-filter-form-wrapper fieldset {
+  margin: 0;
+  padding: 2rem;
+  box-sizing: border-box;
+  display: block;
+  border: none;
+  border: solid 1px #ccc;
+  min-width: 0;
+  background-color: #fff;
+}
+.cdox-filter-form-wrapper fieldset legend {
+  margin: 0 0 1.4rem;
+  padding: 0;
+  width: 100%;
+  float: left;
+  display: table;
+  font-size: 1.4rem;
+  line-height: 140%;
+  font-weight: 600;
+  color: #333;
+}
+.cdox-filter-form-wrapper fieldset legend + * {
+  clear: both;
+}
+
+.cdox-filter-form-wrapper body:not(:-moz-handler-blocked) fieldset {
+  display: table-cell;
+}
+
+/* SELECT STYLING */
+
+/* Reset Select */
+.cdox-filter-form-select select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  -ms-appearance: none;
+  appearance: none;
+  outline: 0;
+  box-shadow: none;
+  border: 0 !important;
+  background: #4b9dea;
+  background-image: none;
+  flex: 1;
+  padding: 0 .5em;
+  color: #fff;
+  cursor: pointer;
+}
+/* Remove IE arrow */
+.cdox-filter-form-select select::-ms-expand {
+  display: none;
+}
+/* Custom Select */
+.cdox-filter-form-select {
+  position: relative;
+  display: flex;
+  width: 30em;
+  height: 2.5em;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 140%;
+  background: #4b9dea;
+  overflow: hidden;
+  border-radius: .25em;
+}
+.cdox-filter-form-select select {
+  flex: 1;
+  padding: .5rem 2rem;
+  color: #fff;
+  cursor: pointer;
+}
+/* Arrow */
+.cdox-filter-form-select::after {
+  content: '\25BC';
+  position: absolute;
+  top: 0;
+  right: 0;
+  padding: .6rem 1rem;
+  background: #a9a9a9;
+  cursor: pointer;
+  pointer-events: none;
+  -webkit-transition: .25s all ease;
+  -o-transition: .25s all ease;
+  transition: .25s all ease;
+}
+/* Transition */
+.cdox-filter-form-select:hover::after {
+  color: #128ef3;
+}
+
+/* BUTTON STYLING */
+.cdox-filter-form-wrapper button {
+  padding: .5rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 140%;
+  background: #4b9dea;
+  color: #fff;
+  border: 0 none;
+  cursor: pointer;
+  -webkit-border-radius: .25em;
+  border-radius: .25em;
+}
+.cdox-filter-form-button {
+  margin: 5px;
+  display: flex;
+  justify-content: center;
+}
+
+/* TOGGLE STYLING */
+.cdox-filter-form-wrapper .toggle {
+  margin: 0 0 1.5rem;
+  box-sizing: border-box;
+  font-size: 0;
+  display: -webkit-box;
+  display: flex;
+  -webkit-box-orient: horizontal;
+  -webkit-box-direction: normal;
+          flex-flow: row nowrap;
+  -webkit-box-pack: start;
+          justify-content: flex-start;
+  -webkit-box-align: stretch;
+          align-items: stretch;
+}
+.cdox-filter-form-wrapper .toggle input {
+  width: 0;
+  height: 0;
+  position: absolute;
+  left: -9999px;
+}
+.cdox-filter-form-wrapper .toggle input + label {
+  margin: 0;
+  padding: 0.5rem 2rem;
+  box-sizing: border-box;
+  position: relative;
+  display: inline-block;
+  border: solid 1px #ddd;
+  background-color: #fff;
+  font-size: 1rem;
+  line-height: 140%;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  -webkit-transition: border-color 0.15s ease-out, color 0.25s ease-out, background-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  transition: border-color 0.15s ease-out, color 0.25s ease-out, background-color 0.15s ease-out, box-shadow 0.15s ease-out;
+  /* ADD THESE PROPERTIES TO SWITCH FROM AUTO WIDTH TO FULL WIDTH */
+  /*flex: 0 0 50%; display: flex; justify-content: center; align-items: center;*/
+  /* ----- */
+}
+.cdox-filter-form-wrapper .toggle input + label:first-of-type {
+  border-radius: .25em 0 0 .25em;
+  border-right: none;
+}
+.cdox-filter-form-wrapper .toggle input + label:last-of-type {
+  border-radius: 0 .25em .25em 0;
+  border-left: none;
+}
+.cdox-filter-form-wrapper .toggle input:hover + label {
+  border-color: #213140;
+}
+.cdox-filter-form-wrapper .toggle input:checked + label {
+  background-color: #4b9dea;
+  color: #fff;
+  box-shadow: 0 0 10px rgba(102, 179, 251, 0.5);
+  border-color: #4b9dea;
+  z-index: 1;
+}
+.cdox-filter-form-wrapper .toggle input:focus + label {
+  outline: dotted 1px #ccc;
+  outline-offset: 0.45rem;
+}
+@media (max-width: 800px) {
+  .cdox-filter-form-wrapper .toggle input + label {
+    padding: 0.5rem 0.25rem;
+    -webkit-box-flex: 0;
+            flex: 0 0 50%;
+    display: -webkit-box;
+    display: flex;
+    -webkit-box-pack: center;
+            justify-content: center;
+    -webkit-box-align: center;
+            align-items: center;
+  }
+  .cdox-filter-form-select {
+    width: 22em;
+  }
+}
+
+
 .cdox-list-col-wrapper {
   display: grid;
   grid-gap: 2px;
