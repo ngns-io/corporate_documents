@@ -40,7 +40,7 @@
   -ms-appearance: none;
   appearance: none;
   outline: 0;
-  box-shadow: none;
+  box-shadow: 0 0 10px rgba(102, 179, 251, 0.5);
   border: 0 !important;
   background: #4b9dea;
   background-image: none;
@@ -59,9 +59,6 @@
   display: flex;
   width: 30em;
   height: 2.5em;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 140%;
   background: #4b9dea;
   overflow: hidden;
   border-radius: .25em;
@@ -70,6 +67,9 @@
   flex: 1;
   padding: .5rem 2rem;
   color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 140%;
   cursor: pointer;
 }
 /* Arrow */
@@ -185,7 +185,7 @@
             align-items: center;
   }
   .cdox-filter-form-select {
-    width: 22em;
+    width: 18em;
   }
 }
 

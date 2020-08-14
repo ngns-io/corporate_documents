@@ -75,6 +75,7 @@ add_action( 'wp_enqueue_scripts', 'cdox_load_frontend_js' );
 function cdox_register_shortcodes() {
 
 	add_shortcode('cdox_list_documenttypes', 'cdox_get_list_documenttypes_shortcode');
+	add_shortcode('cdox_list_years', 'cdox_get_years_shortcode');
 	add_shortcode('cdox_list_documents', 'cdox_get_list_documents_shortcode');
 	add_shortcode('cdox_list_filtered_documents', 'cdox_get_list_documents_filtered_shortcode');
 
@@ -105,16 +106,37 @@ function cdox_get_list_documenttypes_shortcode() {
   
 }
 
+function cdox_get_years_shortcode() {
+
+	$years = cdox_get_years_array();
+
+  ob_start();
+  ?>
+	<ul class="cdox-ul">
+  <?php
+  foreach ( $years as $year ) {
+    echo '<li>'.$year.'</li>';
+  }
+  ?>
+  </ul>
+  <?php
+  $temp_content = ob_get_contents();
+  ob_end_clean();
+  return $temp_content;			
+  
+}
+
 function cdox_get_list_documents_shortcode( $atts, $content=null ) {
 	global $wp_query,
 	  	$post;
 
 	$atts = shortcode_atts( array (
 		'type' => '',
-		'show_date' => 'false'
+		'show_date_column' => 'false'
 	), $atts, 'cdox_list_documents' );
 
-	$atts['show_date'] = filter_var( $atts['show_date'], FILTER_VALIDATE_BOOLEAN );
+	$atts['show_date_column'] = filter_var( $atts['show_date_column'], FILTER_VALIDATE_BOOLEAN );
+	$show_date_column = $atts['show_date_column'];
 
   $tax_query = [];	
 
@@ -129,7 +151,7 @@ function cdox_get_list_documents_shortcode( $atts, $content=null ) {
 			) );
 	}
 
-	$loop = new WP_Query( array(
+	$args = array(
 		'posts_per_page'    => -1,
 		'post_type'         => 'corporate_document',
 		'post_status'       => 'publish',
@@ -138,7 +160,9 @@ function cdox_get_list_documents_shortcode( $atts, $content=null ) {
 		'orderby'           => 'date',
 		'order'             => 'DESC',
 		'tax_query'         => $tax_query
-	) );
+	);
+	
+	$loop = new WP_Query( $args );
 
 	if( ! $loop->have_posts() ) {
 			return false;
@@ -146,7 +170,7 @@ function cdox_get_list_documents_shortcode( $atts, $content=null ) {
 
 	$temp_content = '';
 	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $atts['show_date'] ) {
+	if ( $atts['show_date_column'] ) {
 		$wrapper_class = 'cdox-list-col-wrapper-2';
 	}
 	$temp_content .= '<div class="'.$wrapper_class.'">';
@@ -165,7 +189,7 @@ function cdox_get_list_documents_shortcode( $atts, $content=null ) {
 			'posts_per_page' => -1,
 			'post_parent'   => $postid
 		);
-		$temp_content .= cdox_list_query( $args, $show_date=$atts['show_date'], $pub_date );
+		$temp_content .= cdox_list_query( $args, $show_date_column, $pub_date );
 	}
 	$temp_content .= '</div>';
   wp_reset_postdata();
@@ -180,13 +204,20 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 
 	$atts = shortcode_atts( array (
 		'type' => '',
-		'show_date' => 'false'
+		'show_year_filter' => 'false',
+		'show_date_column' => 'false',
+		'initial_current_year' => 'false'
 	), $atts, 'cdox_list_filtered_documents' );
 
-	$show_date = $atts['show_date'];
-	$atts['show_date'] = filter_var( $atts['show_date'], FILTER_VALIDATE_BOOLEAN );
+	$atts['show_date_column'] = filter_var( $atts['show_date_column'], FILTER_VALIDATE_BOOLEAN );
+	$show_date_column = $atts['show_date_column'];
+	$atts['show_year_filter'] = filter_var( $atts['show_year_filter'], FILTER_VALIDATE_BOOLEAN );
+	$show_year_filter = $atts['show_year_filter'];
+	$atts['initial_current_year'] = filter_var( $atts['initial_current_year'], FILTER_VALIDATE_BOOLEAN );
+	$initial_current_year = $atts['initial_current_year'];
 
-  $tax_query = [];	
+	$tax_query = [];
+	$doc_type_array = [];
 
 	if ( $atts['type'] ) {
 		// Parse type into an array. Whitespace will be stripped.
@@ -197,25 +228,30 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 				'field'     => 'slug',
 				'terms'     => $atts['type']
 			) );
+		$doc_type_array = $atts['type'];
 	}
 
-	$loop = new WP_Query( array(
+	$args = array(
 		'posts_per_page'    => -1,
 		'post_type'         => 'corporate_document',
 		'post_status'       => 'publish',
-		// 'meta_key'          => 'publication_date',
-		// 'orderby'           => 'meta_value_num',
 		'orderby'           => 'date',
 		'order'             => 'DESC',
 		'tax_query'         => $tax_query
-	) );
+	);
 
-	if( ! $loop->have_posts() ) {
-			return false;
+	if ( $initial_current_year ) {
+		$args['year'] = date("Y");
 	}
 
+	$loop = new WP_Query( $args );
+
+	// if( ! $loop->have_posts() ) {
+	// 		return false;
+	// }
+
 	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $atts['show_date'] ) {
+	if ( $show_date_column ) {
 		$wrapper_class = 'cdox-list-col-wrapper-2';
 	}
 
@@ -232,7 +268,7 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 			'posts_per_page' => -1,
 			'post_parent'   => $postid
 		);
-		$list_content .= cdox_list_query( $args, $show_date=$atts['show_date'], $pub_date );
+		$list_content .= cdox_list_query( $args, $show_date_column, $pub_date );
 	}
 	$list_content .= '</div>';
 
@@ -242,25 +278,48 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 
 	$temp_content .= '<div class="cdox-filter-form-wrapper">';
 	$temp_content .= '<form action="'. site_url() .'/wp-admin/admin-ajax.php" method="POST" id="filter">';
-		$args = array (
+	$args = array (
 		'taxonomy' => 'document_type',
 		'hide_empty' => false,
 		'orderby' => 'name',
 	);
-	$temp_content .= '<fieldset>';
-	$temp_content .= '<legend>Select Document Type</legend>';
-	$temp_content .= '<div class="cdox-filter-form-select">';
-	if( $terms = get_terms( $args ) ) : 
+	if ( !empty($doc_type_array) ) :
+		$args['slug'] = $doc_type_array;
+	endif;
+	$terms = get_terms ( $args );
+	if ( !empty($terms) && (count($terms) > 1) ) :
+		// Document type
+		$temp_content .= '<fieldset>';
+		$temp_content .= '<legend>Select Document Type</legend>';
+		$temp_content .= '<div class="cdox-filter-form-select">';
 		$temp_content .= '<select name="cdoxfilter"><option value="cdox_all" selected="selected">All Documents</option>';
 		foreach ( $terms as $term ) :
 			$temp_content .= '<option value="' . $term->term_id . '">' . $term->name . '</option>'; // ID of the category as the value of an option
 		endforeach;
 		$temp_content .= '</select>';
+		$temp_content .= '</div>';
+		$temp_content .= '</fieldset>';
+	else:
+		$temp_content .= '<input type="hidden" name="cdoxfilter" value="'. current($terms)->term_id .'">';
 	endif;
-	$temp_content .= '</div>';
-	$temp_content .= '</fieldset>';
-	//echo '<input type="text" name="price_min" placeholder="Min price" />';
-	//echo '<input type="text" name="price_max" placeholder="Max price" />';
+	// Year
+	if ( $show_year_filter ) :
+		$temp_content .= '<fieldset>';
+		$temp_content .= '<legend>Select Year</legend>';
+		$temp_content .= '<div class="cdox-filter-form-select">';
+		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox_all" selected="selected">All Years</option>';
+		if( $years = cdox_get_years_array() ) : 
+			foreach ( $years as $year ) :
+				$temp_content .= '<option value="' . $year . '">' . $year . '</option>';
+			endforeach;
+		endif;
+		$temp_content .= '</select>';
+		$temp_content .= '</div>';
+		$temp_content .= '</fieldset>';
+	else :
+		$temp_content .= '<input type="hidden" name="cdoxfilteryear" value="cdox_all">';
+	endif;
+	// Published date
 	$temp_content .= '<fieldset>';
 	$temp_content .= '<legend>Sort by Publication Date</legend>';
 	$temp_content .= '<div class="toggle">';
@@ -270,14 +329,13 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 	$temp_content .= '<label for="cdox_asc">Ascending (oldest first)</label>';
 	$temp_content .= '</div>';
 	$temp_content .= '</fieldset>';
-	//$temp_content .= '<label><input type="radio" name="date" value="ASC" /> Date: Ascending</label>';
-	//$temp_content .= '<label><input type="radio" name="date" value="DESC" checked /> Date: Descending</label>';
-	//echo '<label><input type="checkbox" name="featured_image" /> Only posts with featured images</label>';
+  // submit button
 	$temp_content .= '<div class="cdox-filter-form-button"><button>Apply filter</button></div>';
-	$temp_content .= '<input type="hidden" name="showpubdate" value="'. $show_date .'">';
+	$temp_content .= '<input type="hidden" name="showpubdate" value="'. $show_date_column .'">';
 	$temp_content .= '<input type="hidden" name="action" value="cdox_filter">';
 	$temp_content .= '</form>';
 	$temp_content .= '</div><!-- end cdox-filter-form-wrapper -->';
+	// the response list of documents
 	$temp_content .= '<div id="response">';
 	$temp_content .= $list_content;
 	$temp_content .= '</div><!-- end response -->';
@@ -313,13 +371,16 @@ function cdox_apply_filter() {
 		endif;
 	endif;
 
-	$show_date = true;
-	if( isset( $_POST['showpubdate'] ) )
-		$show_date = (bool) $_POST['showpubdate'];
+	if( isset( $_POST['cdoxfilteryear'] ) ) {
+		$args['year'] = (int) $_POST['cdoxfilteryear'];
+	}
 
+	$show_date_column = true;
+	if( isset( $_POST['showpubdate'] ) )
+		$show_date_column = (bool) $_POST['showpubdate'];
 
 	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $show_date ) {
+	if ( $show_date_column ) {
 		$wrapper_class = 'cdox-list-col-wrapper-2';
 	}
 
@@ -338,7 +399,7 @@ function cdox_apply_filter() {
 				'posts_per_page' => -1,
 				'post_parent'   => $postid
 			);
-			$temp_content .= cdox_list_query( $attachment_args, $show_date, $pub_date );
+			$temp_content .= cdox_list_query( $attachment_args, $show_date_column, $pub_date );
 		endwhile;
 		wp_reset_postdata();
 	else :
@@ -423,7 +484,7 @@ include_once( plugin_dir_path( __FILE__ ) . 'cpt/cdox_document.php');
 # MISC
 //-----------
 
-function cdox_list_query ( $args, $show_date, $pub_date ) {
+function cdox_list_query ( $args, $show_date_column, $pub_date ) {
 
 	$output = '';
 	$attachment = new WP_Query( $args );
@@ -434,7 +495,7 @@ function cdox_list_query ( $args, $show_date, $pub_date ) {
 		$parsed = parse_url( $file->guid );
 		$url = dirname( $parsed [ 'path' ] ) . '/' . rawurlencode( basename( $parsed[ 'path' ] ) );
 
-		if ( $show_date ) {
+		if ( $show_date_column ) {
 			$output .= '<div class="cdox-list-col-item">'. $pub_date .'</div>';
 		} 
 		$output .= '<div class="cdox-list-col-item"><i class="fa ' . $icon_class .'"></i>&nbsp';
@@ -445,4 +506,24 @@ function cdox_list_query ( $args, $show_date, $pub_date ) {
 
 }
 
-
+function cdox_get_years_array() {
+	global $wpdb;
+	$result = array();
+	$select = "SELECT YEAR(post_date) FROM {$wpdb->posts} ";
+	$select .= "WHERE post_status = '%s' AND post_type = '%s' ";
+	$select .= "GROUP BY YEAR(post_date) ";
+	$select .= "ORDER BY YEAR(post_date) DESC";
+	$select_args = array("publish", "corporate_document");
+	$years = $wpdb->get_results(
+			$wpdb->prepare(
+					$select, $select_args
+			),
+			ARRAY_N
+	);
+	if ( is_array( $years ) && count( $years ) > 0 ) {
+			foreach ( $years as $year ) {
+					$result[] = $year[0];
+			}
+	}
+	return $result;
+}
