@@ -220,7 +220,7 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 	$doc_type_array = [];
 
 	if ( $atts['type'] ) {
-		// Parse type into an array. Whitespace will be stripped.
+		// Parse list of doc types into an array. Whitespace will be stripped.
 		$sanitized_types = preg_replace( '/\s*,\s*/', ',', filter_var( $atts['type'], FILTER_SANITIZE_STRING ) );
 		$atts['type'] = explode( ',', $sanitized_types );
 		$tax_query = array( array(
@@ -292,22 +292,22 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		$temp_content .= '<fieldset>';
 		$temp_content .= '<legend>Select Document Type</legend>';
 		$temp_content .= '<div class="cdox-filter-form-select">';
-		$temp_content .= '<select name="cdoxfilter"><option value="cdox_all" selected="selected">All Documents</option>';
+		$temp_content .= '<select name="cdoxfilterdoctypes"><option value="cdox-all-doctypes" selected="selected">All Documents</option>';
 		foreach ( $terms as $term ) :
-			$temp_content .= '<option value="' . $term->term_id . '">' . $term->name . '</option>'; // ID of the category as the value of an option
+			$temp_content .= '<option value="' . $term->slug . '">' . $term->name . '</option>'; // ID of the category as the value of an option
 		endforeach;
 		$temp_content .= '</select>';
 		$temp_content .= '</div>';
 		$temp_content .= '</fieldset>';
 	else:
-		$temp_content .= '<input type="hidden" name="cdoxfilter" value="'. current($terms)->term_id .'">';
+		$temp_content .= '<input type="hidden" name="cdoxfilterdoctypes" value="'. current($terms)->slug .'">';
 	endif;
 	// Year
 	if ( $show_year_filter ) :
 		$temp_content .= '<fieldset>';
 		$temp_content .= '<legend>Select Year</legend>';
 		$temp_content .= '<div class="cdox-filter-form-select">';
-		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox_all" selected="selected">All Years</option>';
+		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox-all-years" selected="selected">All Years</option>';
 		if( $years = cdox_get_years_array() ) : 
 			foreach ( $years as $year ) :
 				$temp_content .= '<option value="' . $year . '">' . $year . '</option>';
@@ -317,21 +317,22 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		$temp_content .= '</div>';
 		$temp_content .= '</fieldset>';
 	else :
-		$temp_content .= '<input type="hidden" name="cdoxfilteryear" value="cdox_all">';
+		$temp_content .= '<input type="hidden" name="cdoxfilteryear" value="cdox-all-years">';
 	endif;
 	// Published date
 	$temp_content .= '<fieldset>';
 	$temp_content .= '<legend>Sort by Publication Date</legend>';
 	$temp_content .= '<div class="toggle">';
-	$temp_content .= '<input type="radio" name="date" value="DESC" id="cdox_desc" checked="checked" />';
+	$temp_content .= '<input type="radio" name="dateorder" value="DESC" id="cdox_desc" checked="checked" />';
 	$temp_content .= '<label for="cdox_desc">Descending (newest first)</label>';
-	$temp_content .= '<input type="radio" name="date" value="ASC" id="cdox_asc" />';
+	$temp_content .= '<input type="radio" name="dateorder" value="ASC" id="cdox_asc" />';
 	$temp_content .= '<label for="cdox_asc">Ascending (oldest first)</label>';
 	$temp_content .= '</div>';
 	$temp_content .= '</fieldset>';
   // submit button
 	$temp_content .= '<div class="cdox-filter-form-button"><button>Apply filter</button></div>';
 	$temp_content .= '<input type="hidden" name="showpubdate" value="'. $show_date_column .'">';
+	$temp_content .= '<input type="hidden" name="cdoxfilter-all-doctypes" value="'. $sanitized_types .'">';
 	$temp_content .= '<input type="hidden" name="action" value="cdox_filter">';
 	$temp_content .= '</form>';
 	$temp_content .= '</div><!-- end cdox-filter-form-wrapper -->';
@@ -355,20 +356,22 @@ function cdox_apply_filter() {
 		'post_type'         => 'corporate_document',
 		'post_status'       => 'publish',
 		'orderby'           => 'date', // we will sort posts by date
-		'order'	            => $_POST['date'] // ASC or DESC
+		'order'	            => $_POST['dateorder'] // ASC or DESC
 	);
 
-	if( isset( $_POST['cdoxfilter'] ) ):
-		if ( $_POST['cdoxfilter'] === "cdox_all" ):
-		else:
-			$args['tax_query'] = array(
-				array(
-					'taxonomy' => 'document_type',
-					'field' => 'id',
-					'terms' => $_POST['cdoxfilter']
-				)
-			);
+	if( isset( $_POST['cdoxfilterdoctypes'] ) ):
+		$taxonomy_terms = $_POST['cdoxfilterdoctypes'];
+		if ( $taxonomy_terms === "cdox-all-doctypes" ):
+			$doctypes_list = explode( ',', $_POST['cdoxfilter-all-doctypes'] );
+			$taxonomy_terms = $doctypes_list;
 		endif;
+		$args['tax_query'] = array(
+			array(
+				'taxonomy' => 'document_type',
+				'field' => 'slug',
+				'terms' => $taxonomy_terms
+			)
+		);
 	endif;
 
 	if( isset( $_POST['cdoxfilteryear'] ) ) {
