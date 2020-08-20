@@ -291,7 +291,7 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		// Document type
 		$temp_content .= '<fieldset>';
 		$temp_content .= '<legend>Select Document Type</legend>';
-		$temp_content .= '<div class="cdox-filter-form-select">';
+		$temp_content .= '<div class="select">';
 		$temp_content .= '<select name="cdoxfilterdoctypes"><option value="cdox-all-doctypes" selected="selected">All Documents</option>';
 		foreach ( $terms as $term ) :
 			$temp_content .= '<option value="' . $term->slug . '">' . $term->name . '</option>'; // ID of the category as the value of an option
@@ -306,7 +306,7 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 	if ( $show_year_filter ) :
 		$temp_content .= '<fieldset>';
 		$temp_content .= '<legend>Select Year</legend>';
-		$temp_content .= '<div class="cdox-filter-form-select">';
+		$temp_content .= '<div class="select">';
 		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox-all-years" selected="selected">All Years</option>';
 		if( $years = cdox_get_years_array() ) : 
 			foreach ( $years as $year ) :
