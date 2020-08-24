@@ -287,25 +287,22 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		$args['slug'] = $doc_type_array;
 	endif;
 	$terms = get_terms ( $args );
+	$temp_content .= '<fieldset>';
+	$temp_content .= '<legend>Filter Options</legend>';
+	// Document type
 	if ( !empty($terms) && (count($terms) > 1) ) :
-		// Document type
-		$temp_content .= '<fieldset>';
-		$temp_content .= '<legend>Select Document Type</legend>';
 		$temp_content .= '<div class="select">';
-		$temp_content .= '<select name="cdoxfilterdoctypes"><option value="cdox-all-doctypes" selected="selected">All Documents</option>';
+		$temp_content .= '<select name="cdoxfilterdoctypes"><option value="cdox-all-doctypes" selected="selected">All Document Types</option>';
 		foreach ( $terms as $term ) :
 			$temp_content .= '<option value="' . $term->slug . '">' . $term->name . '</option>'; // ID of the category as the value of an option
 		endforeach;
 		$temp_content .= '</select>';
 		$temp_content .= '</div>';
-		$temp_content .= '</fieldset>';
 	else:
 		$temp_content .= '<input type="hidden" name="cdoxfilterdoctypes" value="'. current($terms)->slug .'">';
 	endif;
 	// Year
 	if ( $show_year_filter ) :
-		$temp_content .= '<fieldset>';
-		$temp_content .= '<legend>Select Year</legend>';
 		$temp_content .= '<div class="select">';
 		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox-all-years" selected="selected">All Years</option>';
 		if( $years = cdox_get_years_array() ) : 
@@ -315,18 +312,15 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		endif;
 		$temp_content .= '</select>';
 		$temp_content .= '</div>';
-		$temp_content .= '</fieldset>';
 	else :
 		$temp_content .= '<input type="hidden" name="cdoxfilteryear" value="cdox-all-years">';
 	endif;
 	// Published date
-	$temp_content .= '<fieldset>';
-	$temp_content .= '<legend>Sort by Publication Date</legend>';
 	$temp_content .= '<div class="toggle">';
 	$temp_content .= '<input type="radio" name="dateorder" value="DESC" id="cdox_desc" checked="checked" />';
-	$temp_content .= '<label for="cdox_desc">Descending (newest first)</label>';
+	$temp_content .= '<label for="cdox_desc">Descending Order (newest first)</label>';
 	$temp_content .= '<input type="radio" name="dateorder" value="ASC" id="cdox_asc" />';
-	$temp_content .= '<label for="cdox_asc">Ascending (oldest first)</label>';
+	$temp_content .= '<label for="cdox_asc">Ascending Order (oldest first)</label>';
 	$temp_content .= '</div>';
 	$temp_content .= '</fieldset>';
   // submit button
@@ -406,7 +400,7 @@ function cdox_apply_filter() {
 		endwhile;
 		wp_reset_postdata();
 	else :
-		$temp_content .= '<span>No documents found</span>';
+		$temp_content .= '<span class="not-found">No documents found</span>';
 	endif;
  
 	$temp_content .= '</div>';

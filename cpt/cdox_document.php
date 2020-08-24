@@ -235,8 +235,7 @@ function cdox_create_document_types()	{
 		{
 			wp_insert_term( 'Investor Relations', 'document_type' );
 			wp_insert_term( 'Corporate Governance', 'document_type' );
-			wp_insert_term( 'Press Release', 'document_type' );
-			wp_insert_term( 'Securities Filing', 'document_type' );
+			wp_insert_term( 'News Release', 'document_type' );
 			wp_insert_term( 'Annual Filing', 'document_type' );
 			wp_insert_term( 'Quarterly Filing', 'document_type' );
 			wp_insert_term( '8-K Filing', 'document_type' );
