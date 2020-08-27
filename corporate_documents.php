@@ -68,6 +68,10 @@ register_deactivation_hook( __FILE__, function() {
 add_action( 'wp_enqueue_scripts', 'cdox_load_frontend_styles' );
 add_action( 'wp_enqueue_scripts', 'cdox_load_frontend_js' );
 
+// Allow XML files to be uploaded
+add_filter('upload_mimes', 'cdox_allow_upload_xml');
+ 
+
 //-----------
 # SHORTCODES
 //-----------
@@ -229,6 +233,16 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 				'terms'     => $atts['type']
 			) );
 		$doc_type_array = $atts['type'];
+	} else {
+		$atts['type'] = get_terms( array(
+			'taxonomy' => 'document_type',
+			'hide_empty' => false,
+		) );
+		$sanitized_types = "";
+		foreach ( $atts['type'] as $doc_type ) {
+			$sanitized_types .= $doc_type->slug;
+			$sanitized_types .= ",";
+		}
 	}
 
 	$args = array(
@@ -240,8 +254,9 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 		'tax_query'         => $tax_query
 	);
 
+	$current_year = date("Y");
 	if ( $initial_current_year ) {
-		$args['year'] = date("Y");
+		$args['year'] = $current_year;
 	}
 
 	$loop = new WP_Query( $args );
@@ -292,7 +307,8 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 	// Document type
 	if ( !empty($terms) && (count($terms) > 1) ) :
 		$temp_content .= '<div class="select">';
-		$temp_content .= '<select name="cdoxfilterdoctypes"><option value="cdox-all-doctypes" selected="selected">All Document Types</option>';
+		$temp_content .= '<select name="cdoxfilterdoctypes">';
+		$temp_content .= '<option value="cdox-all-doctypes" selected="selected">All Document Types</option>';
 		foreach ( $terms as $term ) :
 			$temp_content .= '<option value="' . $term->slug . '">' . $term->name . '</option>'; // ID of the category as the value of an option
 		endforeach;
@@ -304,10 +320,15 @@ function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
 	// Year
 	if ( $show_year_filter ) :
 		$temp_content .= '<div class="select">';
-		$temp_content .= '<select name="cdoxfilteryear"><option value="cdox-all-years" selected="selected">All Years</option>';
+		$temp_content .= '<select name="cdoxfilteryear">';
+		$temp_content .= '<option value="cdox-all-years"';
+		if(!$initial_current_year): $temp_content .= 'selected="selected"'; endif;
+		$temp_content .= '>All Years</option>';
 		if( $years = cdox_get_years_array() ) : 
 			foreach ( $years as $year ) :
-				$temp_content .= '<option value="' . $year . '">' . $year . '</option>';
+				$temp_content .= '<option value="' . $year . '" ';
+				if( $initial_current_year && $year == $current_year ): $temp_content .= 'selected="selected"'; endif;
+				$temp_content .= '>' . $year . '</option>';
 			endforeach;
 		endif;
 		$temp_content .= '</select>';
@@ -369,7 +390,10 @@ function cdox_apply_filter() {
 	endif;
 
 	if( isset( $_POST['cdoxfilteryear'] ) ) {
-		$args['year'] = (int) $_POST['cdoxfilteryear'];
+		$year = $_POST['cdoxfilteryear'];
+		if ( $year != "cdox-all-years" ) {
+			$args['year'] = (int) $year;
+		}
 	}
 
 	$show_date_column = true;
@@ -381,7 +405,7 @@ function cdox_apply_filter() {
 		$wrapper_class = 'cdox-list-col-wrapper-2';
 	}
 
-	$temp_content .= '<div class="'.$wrapper_class.'">';
+	$temp_content = '<div class="'.$wrapper_class.'">';
 
 	$query = new WP_Query( $args );
  

@@ -29,3 +29,8 @@ function get_fa_icon_class($mime_type) {
       return 'fa-file-alt'; break;
   }
 }
+
+function cdox_allow_upload_xml($mimes) {
+  $mimes = array_merge($mimes, array('xml' => 'application/xml'));
+  return $mimes;
+}

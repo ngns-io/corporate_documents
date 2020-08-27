@@ -121,7 +121,7 @@ function cdox_register_corporate_document() {
     "show_in_quick_edit" => false,
     ];
 
-  register_taxonomy( "document_type", [ ], $args );
+  register_taxonomy( "document_type", [ "corporate_document" ], $args );
 
 }
 
@@ -235,7 +235,7 @@ function cdox_create_document_types()	{
 		{
 			wp_insert_term( 'Investor Relations', 'document_type' );
 			wp_insert_term( 'Corporate Governance', 'document_type' );
-			wp_insert_term( 'News Release', 'document_type' );
+			wp_insert_term( 'Press Release', 'document_type' );
 			wp_insert_term( 'Annual Filing', 'document_type' );
 			wp_insert_term( 'Quarterly Filing', 'document_type' );
 			wp_insert_term( '8-K Filing', 'document_type' );
