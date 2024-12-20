@@ -1,2 +1,11 @@
+/vendor/
+/node_modules/
 .DS_Store
+.idea/
+.vscode/
+*.log
+*.cache
+composer.lock
+package-lock.json
 frontend copy.css
+/tests/wordpress*

@@ -1,0 +1,24 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - admin
+        - frontend
+        - includes
+    excludePaths:
+        - vendor
+        - tests
+    ignoreErrors:
+        # WordPress specific function calls that PHPStan can't resolve
+        - '#Function [a-zA-Z0-9\\_]+ not found#'
+        - '#Call to static method [a-zA-Z0-9\\_]+\(\) on an unknown class WP_Mock#'
+    bootstrapFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+    scanFiles:
+        - vendor/wp-phpunit/wp-phpunit/includes/bootstrap.php
+    dynamicConstantNames:
+        - ABSPATH
+        - WP_DEBUG
+        - CDOX_VERSION
+        - CDOX_PLUGIN_DIR
+        - CDOX_PLUGIN_URL

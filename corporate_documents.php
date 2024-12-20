@@ -1,550 +1,250 @@
 <?php
-/*
+/**
+ * The plugin bootstrap file
+ *
+ * @link              https://github.com/ngns-io/corporate-documents
+ * @since             1.0.0
+ * @package           CorporateDocuments
+ *
+ * @wordpress-plugin
  * Plugin Name:       Corporate Documents
- * Plugin URI:        https://ngns.io/wordpress/plugins/corporate_documents/
+ * Plugin URI:        https://github.com/ngns-io/corporate-documents
  * Description:       Plugin to manage corporate documents
- * Version:           0.1
+ * Version:           1.0.0
  * Author:            Evenhouse Consulting, Inc.
  * Author URI:        https://evenhouseconsulting.com
- * Textdomain:        cdox
- * License:           GPLv2
+ * License:           GPL-2.0+
+ * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
+ * Text Domain:       cdox
+ * Domain Path:       /languages
  */
 
+declare(strict_types=1);
+
+namespace CorporateDocuments;
+
+// If this file is called directly, abort.
 if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly.
+	exit( 'Direct access denied.' );
 }
 
-// Version constant
-define("CDOX_VERSION", ".1");
+// Autoloader.
+require_once plugin_dir_path( __FILE__ ) . 'vendor/autoload.php';
 
-include_once( plugin_dir_path( __FILE__ ) . 'includes/functions.php');
+/**
+ * Constants
+ */
+define( 'CDOX_VERSION', '1.0.0' );
+define( 'CDOX_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+define( 'CDOX_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
+define( 'CDOX_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
-//----------------------
-# Advanced Custom Fields
-//----------------------
+/**
+ * The core plugin class.
+ */
+class CorporateDocuments {
 
-// Define path and URL to the ACF plugin.
-define( 'CDOX_ACF_PATH', plugin_dir_path( __FILE__ ) . 'lib/acf/' );
-define( 'CDOX_ACF_URL', plugin_dir_url( __FILE__ ) . 'lib/acf/' );
+	/**
+	 * The loader that's responsible for maintaining and registering all hooks.
+	 *
+	 * @var Core\Loader
+	 */
+	protected Core\Loader $loader;
 
-// Include the ACF plugin.
-include_once( CDOX_ACF_PATH . 'acf.php' );
+	/**
+	 * The document repository instance.
+	 *
+	 * @var Document\DocumentRepository
+	 */
+	protected Document\DocumentRepository $document_repository;
 
-// Customize the url setting to fix incorrect asset URLs.
-add_filter('acf/settings/url', 'cdox_acf_settings_url');
-function cdox_acf_settings_url( $url ) {
-    return CDOX_ACF_URL;
-}
-
-// (Optional) Hide the ACF admin menu item.
-add_filter('acf/settings/show_admin', '__return_false');
-// add_filter('acf/settings/show_admin', 'cdox_acf_settings_show_admin');
-// function cdox_acf_settings_show_admin( $show_admin ) {
-//     return false;
-// }
-
-//-----------
-# HOOKS
-//-----------
-
-add_action('init', 'cdox_register_shortcodes');
-
-add_action('wp_ajax_cdox_filter', 'cdox_apply_filter');
-add_action('wp_ajax_nopriv_cdox_filter', 'cdox_apply_filter');
-
-add_filter('manage_edit-corporate_document_columns','cdox_document_column_headers');
-add_filter('manage_corporate_document_posts_custom_column','cdox_document_column_data',1,2);
-
-register_activation_hook( __FILE__, function() {
-  require_once(plugin_dir_path( __FILE__ ) . 'includes/Activation.php');
-  Activation::activate();
-});
-
-register_deactivation_hook( __FILE__, function() {
-  require_once(plugin_dir_path( __FILE__ ) . 'includes/Deactivation.php');
-  Deactivation::deactivate();
-});
-
-add_action( 'wp_enqueue_scripts', 'cdox_load_frontend_styles' );
-add_action( 'wp_enqueue_scripts', 'cdox_load_frontend_js' );
-
-// Allow XML files to be uploaded
-add_filter('upload_mimes', 'cdox_allow_upload_xml');
- 
-
-//-----------
-# SHORTCODES
-//-----------
-
-function cdox_register_shortcodes() {
-
-	add_shortcode('cdox_list_documenttypes', 'cdox_get_list_documenttypes_shortcode');
-	add_shortcode('cdox_list_years', 'cdox_get_years_shortcode');
-	add_shortcode('cdox_list_documents', 'cdox_get_list_documents_shortcode');
-	add_shortcode('cdox_list_filtered_documents', 'cdox_get_list_documents_filtered_shortcode');
-
-}
-
-function cdox_get_list_documenttypes_shortcode() {
-
-	$args = array (
-    'taxonomy' => 'document_type',
-    'hide_empty' => false,
-  );
-
-	$terms = get_terms( $args );
-
-  ob_start();
-  ?>
-	<ul class="cdox-ul">
-  <?php
-  foreach ( $terms as $term ) {
-    echo '<li>'.$term->name.'</li>';
-  }
-  ?>
-  </ul>
-  <?php
-  $temp_content = ob_get_contents();
-  ob_end_clean();
-  return $temp_content;			
-  
-}
-
-function cdox_get_years_shortcode() {
-
-	$years = cdox_get_years_array();
-
-  ob_start();
-  ?>
-	<ul class="cdox-ul">
-  <?php
-  foreach ( $years as $year ) {
-    echo '<li>'.$year.'</li>';
-  }
-  ?>
-  </ul>
-  <?php
-  $temp_content = ob_get_contents();
-  ob_end_clean();
-  return $temp_content;			
-  
-}
-
-function cdox_get_list_documents_shortcode( $atts, $content=null ) {
-	global $wp_query,
-	  	$post;
-
-	$atts = shortcode_atts( array (
-		'type' => '',
-		'show_date_column' => 'false'
-	), $atts, 'cdox_list_documents' );
-
-	$atts['show_date_column'] = filter_var( $atts['show_date_column'], FILTER_VALIDATE_BOOLEAN );
-	$show_date_column = $atts['show_date_column'];
-
-  $tax_query = [];	
-
-	if ( $atts['type'] ) {
-		// Parse type into an array. Whitespace will be stripped.
-		$sanitized_types = preg_replace( '/\s*,\s*/', ',', filter_var( $atts['type'], FILTER_SANITIZE_STRING ) );
-		$atts['type'] = explode( ',', $sanitized_types );
-		$tax_query = array( array(
-				'taxonomy'  => 'document_type',
-				'field'     => 'slug',
-				'terms'     => $atts['type']
-			) );
-	}
-
-	$args = array(
-		'posts_per_page'    => -1,
-		'post_type'         => 'corporate_document',
-		'post_status'       => 'publish',
-		// 'meta_key'          => 'publication_date',
-		// 'orderby'           => 'meta_value_num',
-		'orderby'           => 'date',
-		'order'             => 'DESC',
-		'tax_query'         => $tax_query
+	/**
+	 * Plugin configuration.
+	 *
+	 * @var array<string, string>
+	 */
+	protected array $config = array(
+		'plugin_name' => 'corporate-documents',
+		'version'     => CDOX_VERSION,
+		'domain'      => 'cdox',
 	);
-	
-	$loop = new WP_Query( $args );
 
-	if( ! $loop->have_posts() ) {
-			return false;
+	/**
+	 * Initialize the plugin.
+	 */
+	public function __construct() {
+		$this->load_dependencies();
+		$this->init_plugin();
 	}
 
-	$temp_content = '';
-	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $atts['show_date_column'] ) {
-		$wrapper_class = 'cdox-list-col-wrapper-2';
+	/**
+	 * Load required dependencies.
+	 *
+	 * @return void
+	 */
+	private function load_dependencies(): void {
+		$this->loader              = new Core\Loader();
+		$this->document_repository = new Document\DocumentRepository();
 	}
-	$temp_content .= '<div class="'.$wrapper_class.'">';
 
-	while( $loop->have_posts() ) {
-		$loop->the_post();
-		$postid = get_the_ID();
-		// $pub_date = get_post_meta($postid, 'publication_date', true);
-		// $pub_dateTime = DateTime::createFromFormat('Ymd', $pub_date);
-		// $pub_date = date_format($pub_dateTime,'F j, Y');
-		$pub_date = get_the_date( 'M d, Y' );
-		$args = array(
-			'post_type' => 'attachment',
-			'post_status' => 'inherit',
-			'numberposts' => 1,
-			'posts_per_page' => -1,
-			'post_parent'   => $postid
+	/**
+	 * Initialize plugin components.
+	 *
+	 * @return void
+	 */
+	private function init_plugin(): void {
+		$this->init_localization();
+		$this->init_admin();
+		$this->init_frontend();
+		$this->init_updater();
+	}
+
+	/**
+	 * Initialize localization.
+	 *
+	 * @return void
+	 */
+	private function init_localization(): void {
+		$i18n = new Core\I18n( $this->config['domain'] );
+		$this->loader->add_action( 'plugins_loaded', $i18n, 'load_plugin_textdomain' );
+	}
+
+	/**
+	 * Initialize admin functionality.
+	 *
+	 * @return void
+	 */
+	private function init_admin(): void {
+		$plugin_admin = new Admin\Admin(
+			$this->config['plugin_name'],
+			$this->config['version']
 		);
-		$temp_content .= cdox_list_query( $args, $show_date_column, $pub_date );
-	}
-	$temp_content .= '</div>';
-  wp_reset_postdata();
-  return $temp_content;			
 
-}
+		// Core admin hooks.
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_styles' );
+		$this->loader->add_action( 'admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts' );
 
-# filterable document list shortcode
-function cdox_get_list_documents_filtered_shortcode( $atts, $content=null ) {
-	global $wp_query,
-	  	$post;
+		// Post type and taxonomy handling.
+		$post_type = new Admin\PostType( $this->document_repository );
+		$this->loader->add_action( 'init', $post_type, 'register_post_type' );
+		$this->loader->add_action( 'init', $post_type, 'register_taxonomy' );
 
-	$atts = shortcode_atts( array (
-		'type' => '',
-		'show_year_filter' => 'false',
-		'show_date_column' => 'false',
-		'initial_current_year' => 'false'
-	), $atts, 'cdox_list_filtered_documents' );
-
-	$atts['show_date_column'] = filter_var( $atts['show_date_column'], FILTER_VALIDATE_BOOLEAN );
-	$show_date_column = $atts['show_date_column'];
-	$atts['show_year_filter'] = filter_var( $atts['show_year_filter'], FILTER_VALIDATE_BOOLEAN );
-	$show_year_filter = $atts['show_year_filter'];
-	$atts['initial_current_year'] = filter_var( $atts['initial_current_year'], FILTER_VALIDATE_BOOLEAN );
-	$initial_current_year = $atts['initial_current_year'];
-
-	$tax_query = [];
-	$doc_type_array = [];
-
-	if ( $atts['type'] ) {
-		// Parse list of doc types into an array. Whitespace will be stripped.
-		$sanitized_types = preg_replace( '/\s*,\s*/', ',', filter_var( $atts['type'], FILTER_SANITIZE_STRING ) );
-		$atts['type'] = explode( ',', $sanitized_types );
-		$tax_query = array( array(
-				'taxonomy'  => 'document_type',
-				'field'     => 'slug',
-				'terms'     => $atts['type']
-			) );
-		$doc_type_array = $atts['type'];
-	} else {
-		$atts['type'] = get_terms( array(
-			'taxonomy' => 'document_type',
-			'hide_empty' => false,
-		) );
-		$sanitized_types = "";
-		foreach ( $atts['type'] as $doc_type ) {
-			$sanitized_types .= $doc_type->slug;
-			$sanitized_types .= ",";
-		}
-	}
-
-	$args = array(
-		'posts_per_page'    => -1,
-		'post_type'         => 'corporate_document',
-		'post_status'       => 'publish',
-		'orderby'           => 'date',
-		'order'             => 'DESC',
-		'tax_query'         => $tax_query
-	);
-
-	$current_year = date("Y");
-	if ( $initial_current_year ) {
-		$args['year'] = $current_year;
-	}
-
-	$loop = new WP_Query( $args );
-
-	// if( ! $loop->have_posts() ) {
-	// 		return false;
-	// }
-
-	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $show_date_column ) {
-		$wrapper_class = 'cdox-list-col-wrapper-2';
-	}
-
-	$list_content = '<div class="'.$wrapper_class.'">';
-
-	while( $loop->have_posts() ) {
-		$loop->the_post();
-		$postid = get_the_ID();
-		$pub_date = get_the_date( 'M d, Y' );
-		$args = array(
-			'post_type' => 'attachment',
-			'post_status' => 'inherit',
-			'numberposts' => 1,
-			'posts_per_page' => -1,
-			'post_parent'   => $postid
+		// Admin columns and filters.
+		$this->loader->add_filter(
+			'manage_corporate_document_posts_columns',
+			$post_type,
+			'set_columns'
 		);
-		$list_content .= cdox_list_query( $args, $show_date_column, $pub_date );
-	}
-	$list_content .= '</div>';
-
-	wp_reset_postdata();
-
-	$temp_content = '';
-
-	$temp_content .= '<div class="cdox-filter-form-wrapper">';
-	$temp_content .= '<form action="'. site_url() .'/wp-admin/admin-ajax.php" method="POST" id="filter">';
-	$args = array (
-		'taxonomy' => 'document_type',
-		'hide_empty' => false,
-		'orderby' => 'name',
-	);
-	if ( !empty($doc_type_array) ) :
-		$args['slug'] = $doc_type_array;
-	endif;
-	$terms = get_terms ( $args );
-	$temp_content .= '<fieldset>';
-	$temp_content .= '<legend>Filter Options</legend>';
-	// Document type
-	if ( !empty($terms) && (count($terms) > 1) ) :
-		$temp_content .= '<div class="select">';
-		$temp_content .= '<select name="cdoxfilterdoctypes">';
-		$temp_content .= '<option value="cdox-all-doctypes" selected="selected">All Document Types</option>';
-		foreach ( $terms as $term ) :
-			$temp_content .= '<option value="' . $term->slug . '">' . $term->name . '</option>'; // ID of the category as the value of an option
-		endforeach;
-		$temp_content .= '</select>';
-		$temp_content .= '</div>';
-	else:
-		$temp_content .= '<input type="hidden" name="cdoxfilterdoctypes" value="'. current($terms)->slug .'">';
-	endif;
-	// Year
-	if ( $show_year_filter ) :
-		$temp_content .= '<div class="select">';
-		$temp_content .= '<select name="cdoxfilteryear">';
-		$temp_content .= '<option value="cdox-all-years"';
-		if(!$initial_current_year): $temp_content .= 'selected="selected"'; endif;
-		$temp_content .= '>All Years</option>';
-		if( $years = cdox_get_years_array() ) : 
-			foreach ( $years as $year ) :
-				$temp_content .= '<option value="' . $year . '" ';
-				if( $initial_current_year && $year == $current_year ): $temp_content .= 'selected="selected"'; endif;
-				$temp_content .= '>' . $year . '</option>';
-			endforeach;
-		endif;
-		$temp_content .= '</select>';
-		$temp_content .= '</div>';
-	else :
-		$temp_content .= '<input type="hidden" name="cdoxfilteryear" value="cdox-all-years">';
-	endif;
-	// Published date
-	$temp_content .= '<div class="toggle">';
-	$temp_content .= '<input type="radio" name="dateorder" value="DESC" id="cdox_desc" checked="checked" />';
-	$temp_content .= '<label for="cdox_desc">Descending Order (newest first)</label>';
-	$temp_content .= '<input type="radio" name="dateorder" value="ASC" id="cdox_asc" />';
-	$temp_content .= '<label for="cdox_asc">Ascending Order (oldest first)</label>';
-	$temp_content .= '</div>';
-	$temp_content .= '</fieldset>';
-  // submit button
-	$temp_content .= '<div class="cdox-filter-form-button"><button>Apply filter</button></div>';
-	$temp_content .= '<input type="hidden" name="showpubdate" value="'. $show_date_column .'">';
-	$temp_content .= '<input type="hidden" name="cdoxfilter-all-doctypes" value="'. $sanitized_types .'">';
-	$temp_content .= '<input type="hidden" name="action" value="cdox_filter">';
-	$temp_content .= '</form>';
-	$temp_content .= '</div><!-- end cdox-filter-form-wrapper -->';
-	// the response list of documents
-	$temp_content .= '<div id="response">';
-	$temp_content .= $list_content;
-	$temp_content .= '</div><!-- end response -->';
-
-	return $temp_content;
-	
-}
-
-//-----------
-# ACTIONS
-//-----------
-
-function cdox_apply_filter() {
-
-	$args = array(
-		'posts_per_page'    => -1,
-		'post_type'         => 'corporate_document',
-		'post_status'       => 'publish',
-		'orderby'           => 'date', // we will sort posts by date
-		'order'	            => $_POST['dateorder'] // ASC or DESC
-	);
-
-	if( isset( $_POST['cdoxfilterdoctypes'] ) ):
-		$taxonomy_terms = $_POST['cdoxfilterdoctypes'];
-		if ( $taxonomy_terms === "cdox-all-doctypes" ):
-			$doctypes_list = explode( ',', $_POST['cdoxfilter-all-doctypes'] );
-			$taxonomy_terms = $doctypes_list;
-		endif;
-		$args['tax_query'] = array(
-			array(
-				'taxonomy' => 'document_type',
-				'field' => 'slug',
-				'terms' => $taxonomy_terms
-			)
+		$this->loader->add_action(
+			'manage_corporate_document_posts_custom_column',
+			$post_type,
+			'render_column',
+			10,
+			2
 		);
-	endif;
-
-	if( isset( $_POST['cdoxfilteryear'] ) ) {
-		$year = $_POST['cdoxfilteryear'];
-		if ( $year != "cdox-all-years" ) {
-			$args['year'] = (int) $year;
-		}
 	}
 
-	$show_date_column = true;
-	if( isset( $_POST['showpubdate'] ) )
-		$show_date_column = (bool) $_POST['showpubdate'];
+	/**
+	 * Initialize frontend functionality.
+	 *
+	 * @return void
+	 */
+	private function init_frontend(): void {
+		$plugin_public = new Frontend\Frontend(
+			$this->config['plugin_name'],
+			$this->config['version'],
+			$this->document_repository
+		);
 
-	$wrapper_class = 'cdox-list-col-wrapper';
-	if ( $show_date_column ) {
-		$wrapper_class = 'cdox-list-col-wrapper-2';
+		// Assets.
+		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
+		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+
+		// Shortcodes.
+		$this->loader->add_action( 'init', $plugin_public, 'register_shortcodes' );
+
+		// AJAX handlers.
+		$this->loader->add_action( 'wp_ajax_cdox_filter', $plugin_public, 'handle_filter' );
+		$this->loader->add_action( 'wp_ajax_nopriv_cdox_filter', $plugin_public, 'handle_filter' );
 	}
 
-	$temp_content = '<div class="'.$wrapper_class.'">';
-
-	$query = new WP_Query( $args );
- 
-	if( $query->have_posts() ) :
-		while( $query->have_posts() ): $query->the_post();
-			$postid = get_the_ID();
-			$pub_date = get_the_date( 'M d, Y' );
-			$attachment_args = array(
-				'post_type' => 'attachment',
-				'post_status' => 'inherit',
-				'numberposts' => 1,
-				'posts_per_page' => -1,
-				'post_parent'   => $postid
+	/**
+	 * Initialize updater.
+	 *
+	 * @return void
+	 */
+	private function init_updater(): void {
+		if ( is_admin() ) {
+			new Updater\GitHubUpdater(
+				'ngns-io',           // Your GitHub username.
+				'corporate-documents',     // Repository name.
+				CDOX_PLUGIN_BASENAME
 			);
-			$temp_content .= cdox_list_query( $attachment_args, $show_date_column, $pub_date );
-		endwhile;
-		wp_reset_postdata();
-	else :
-		$temp_content .= '<span class="not-found">No documents found</span>';
-	endif;
- 
-	$temp_content .= '</div>';
-
-	echo $temp_content;
-
-	die();
-}
-
-function cdox_load_frontend_styles() {
-	wp_enqueue_style(
-		'cdox-plugin-frontend',
-		plugins_url( 'css/frontend.css', __FILE__ ),
-		array(),
-		CDOX_VERSION,
-		'screen'
-	);
-	wp_enqueue_style( 
-		'cdox-fa',
-		plugins_url( 'css/fa/all.min.css', __FILE__ ),
-		array(),
-		CDOX_VERSION,
-		'screen'
-	);
-}
-function cdox_load_frontend_js() {
-	wp_enqueue_script( 'jquery' );
-	wp_enqueue_script(
-			'cdox-plugin-js',
-			plugins_url( 'js/filter.js', __FILE__ )
-	);
-}
-
-
-//-----------
-# FILTERS
-//-----------
-
-function cdox_document_column_headers( $columns ) {
-	
-	$columns = array(
-		'cb'=>'<input type="checkbox" />',
-		'title'=>__('Document Name'),
-		'date'=>__('Date Published'),	
-	);
-	
-	return $columns;
-	
-}
-
-function cdox_document_column_data( $column, $post_id ) {
-	
-	$output = '';
-	
-	switch( $column ) {
-		
-		case 'title':
-			$output .= get_field('title', $post_id );
-			break;
-		case 'date':
-			$output .= get_field('date', $post_id );
-			break;
-		
+		}
 	}
-	
-	echo $output;
-	
-}
 
-
-//-----------
-# CUSTOM POST TYPES
-//-----------
-
-include_once( plugin_dir_path( __FILE__ ) . 'cpt/cdox_document.php');
-
-//-----------
-# MISC
-//-----------
-
-function cdox_list_query ( $args, $show_date_column, $pub_date ) {
-
-	$output = '';
-	$attachment = new WP_Query( $args );
-	foreach ( $attachment->posts as $file) {
-
-		$mime_type = $file->post_mime_type;
-		$icon_class = get_fa_icon_class( $mime_type );
-		$parsed = parse_url( $file->guid );
-		$url = dirname( $parsed [ 'path' ] ) . '/' . rawurlencode( basename( $parsed[ 'path' ] ) );
-
-		if ( $show_date_column ) {
-			$output .= '<div class="cdox-list-col-item">'. $pub_date .'</div>';
-		} 
-		$output .= '<div class="cdox-list-col-item"><i class="fa ' . $icon_class .'"></i>&nbsp';
-		$output .= '<a href="'. $url .'" target="blank">' .get_the_title(). '</a></div>';
-
+	/**
+	 * Run the plugin.
+	 *
+	 * @return void
+	 */
+	public function run(): void {
+		$this->loader->run();
 	}
-	return $output;
 
-}
-
-function cdox_get_years_array() {
-	global $wpdb;
-	$result = array();
-	$select = "SELECT YEAR(post_date) FROM {$wpdb->posts} ";
-	$select .= "WHERE post_status = '%s' AND post_type = '%s' ";
-	$select .= "GROUP BY YEAR(post_date) ";
-	$select .= "ORDER BY YEAR(post_date) DESC";
-	$select_args = array("publish", "corporate_document");
-	$years = $wpdb->get_results(
-			$wpdb->prepare(
-					$select, $select_args
-			),
-			ARRAY_N
-	);
-	if ( is_array( $years ) && count( $years ) > 0 ) {
-			foreach ( $years as $year ) {
-					$result[] = $year[0];
-			}
+	/**
+	 * Get plugin name.
+	 *
+	 * @return string
+	 */
+	public function get_plugin_name(): string {
+		return $this->config['plugin_name'];
 	}
-	return $result;
+
+	/**
+	 * Get plugin version.
+	 *
+	 * @return string
+	 */
+	public function get_version(): string {
+		return $this->config['version'];
+	}
+
+	/**
+	 * Get loader instance.
+	 *
+	 * @return Core\Loader
+	 */
+	public function get_loader(): Core\Loader {
+		return $this->loader;
+	}
 }
+
+// Initialize plugin.
+if ( ! function_exists( 'CorporateDocuments\init_corporate_documents' ) ) :
+
+	/**
+	 * Initialize the plugin.
+	 *
+	 * @return CorporateDocuments Main plugin instance.
+	 */
+	function init_corporate_documents(): CorporateDocuments {
+		static $plugin = null;
+
+		if ( $plugin === null ) {
+			// Register activation/deactivation hooks.
+			register_activation_hook( __FILE__, array( Core\Activator::class, 'activate' ) );
+			register_deactivation_hook( __FILE__, array( Core\Deactivator::class, 'deactivate' ) );
+
+			// Create and run plugin.
+			$plugin = new CorporateDocuments();
+			$plugin->run();
+		}
+
+		return $plugin;
+	}
+
+endif;
+
+// Start the plugin.
+init_corporate_documents();
